@@ -1,7 +1,7 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="Correct Score PRO", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="Match Predictor PRO", page_icon="🎯", layout="centered")
 
 st.markdown("""
 <style>
@@ -9,21 +9,20 @@ st.markdown("""
 html, body, [class*="css"] { font-family: 'Inter', sans-serif !important; }
 .stApp { direction: ltr; text-align: left; background: linear-gradient(160deg, #070b14 0%, #0d192b 50%, #061714 100%); color: #f8fafc; }
 header[data-testid="stHeader"] { background: transparent; }
-.hero { background: rgba(255,255,255,0.05); border: 1px solid #10b981; border-radius: 16px; padding: 16px; text-align: center; margin-bottom: 18px; }
-.hero-t { font-size: 22px; font-weight: 900; color: #34d399; margin: 0; }
-.team-box { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 14px; text-align: center; margin-bottom: 12px; }
-.cs-card { border-radius: 14px; padding: 14px; text-align: center; margin-bottom: 10px; }
-.cs-1 { background: rgba(16,185,129,0.22); border: 2px solid #10b981; }
-.cs-2 { background: rgba(59,130,246,0.18); border: 1.5px solid #3b82f6; }
-.cs-3 { background: rgba(245,158,11,0.15); border: 1.5px solid #f59e0b; }
-.cs-sc { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 2px; }
-.s-green { background: rgba(16,185,129,0.2); border: 1.5px solid #10b981; color: #34d399; padding: 12px; border-radius: 12px; text-align: center; font-weight: 800; margin-bottom: 12px; }
-.s-yellow { background: rgba(245,158,11,0.2); border: 1.5px solid #f59e0b; color: #fbbf24; padding: 12px; border-radius: 12px; text-align: center; font-weight: 800; margin-bottom: 12px; }
-.s-red { background: rgba(239,68,68,0.2); border: 1.5px solid #ef4444; color: #f87171; padding: 12px; border-radius: 12px; text-align: center; font-weight: 800; margin-bottom: 12px; }
+.hero { background: rgba(255,255,255,0.05); border: 1px solid #10b981; border-radius: 16px; padding: 14px; text-align: center; margin-bottom: 16px; }
+.hero-t { font-size: 21px; font-weight: 900; color: #34d399; margin: 0; }
+.team-box { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 12px; text-align: center; margin-bottom: 10px; }
+.card { border-radius: 14px; padding: 12px 8px; text-align: center; margin-bottom: 10px; }
+.c-green { background: rgba(16,185,129,0.22); border: 1.5px solid #10b981; color: #34d399; }
+.c-yellow { background: rgba(245,158,11,0.18); border: 1.5px solid #f59e0b; color: #fbbf24; }
+.c-red { background: rgba(239,68,68,0.18); border: 1.5px solid #ef4444; color: #f87171; }
+.c-blue { background: rgba(59,130,246,0.20); border: 1.5px solid #3b82f6; color: #60a5fa; }
+.c-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+.c-val { font-size: 22px; font-weight: 900; }
 .stButton > button { background: linear-gradient(90deg, #10b981, #059669) !important; color: white !important; font-weight: 800 !important; font-size: 16px !important; border-radius: 12px !important; padding: 12px !important; }
 label, .stMarkdown p, h1, h2, h3 { color: #f1f5f9 !important; }
 </style>
-<div class="hero"><div class="hero-t">🎯 Correct Score Predictor PRO</div><div style="color:#94a3b8;font-size:12px;">Full UCL 36 Teams • Dixon-Coles Model • Stability Filter</div></div>
+<div class="hero"><div class="hero-t">🎯 Match Predictor PRO</div><div style="color:#94a3b8;font-size:12px;">Top 3 Correct Scores • 1X2 • Over/Under 2.5 • BTTS</div></div>
 """, unsafe_allow_html=True)
 
 def poisson_prob(k, lam):
@@ -36,41 +35,68 @@ def dixon_coles(x, y, lx, ly, rho=-0.13):
     if x == 1 and y == 1: return 1.0 - rho
     return 1.0
 
-def calculate_correct_scores(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_fts, a_cs, a_fts, adv):
+def color_cls(pct):
+    if pct >= 55.0: return "c-green"
+    if pct >= 35.0: return "c-yellow"
+    return "c-red"
+
+def show_box(title, val_str, pct_for_color):
+    cls = color_cls(pct_for_color)
+    st.markdown(f'<div class="card {cls}"><div class="c-title">{title}</div><div class="c-val">{val_str}</div></div>', unsafe_allow_html=True)
+
+def analyze_match(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_fts, a_cs, a_fts, adv):
     h_xg = max(0.2, ((h_sc + a_con) / 2.0) * (1.0 - h_fts / 200.0) * (1.0 - a_cs / 200.0) * 1.35)
     a_xg = max(0.2, ((a_sc + h_con) / 2.0) * (1.0 - a_fts / 200.0) * (1.0 - h_cs / 200.0) * 1.35)
     if adv: h_xg *= 1.08
 
-    scores, total = {}, 0.0
+    scores = {}
+    total, w1, draw, w2, over25, btts_yes = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
     for i in range(11):
         for j in range(11):
             p = max(0.0, poisson_prob(i, h_xg) * poisson_prob(j, a_xg) * dixon_coles(i, j, h_xg, a_xg))
             scores[f"{i} - {j}"] = p
             total += p
+            if i > j: w1 += p
+            elif i == j: draw += p
+            else: w2 += p
+            if (i + j) > 2.5: over25 += p
+            if i > 0 and j > 0: btts_yes += p
 
-    top5 = sorted(scores.items(), key=lambda x: x, reverse=True)[:5]
-    cov = sum(x for x in top5) / total * 100.0
-    s1, p1 = top5
-    pct1 = (p1 / total) * 100.0
+    p_1 = (w1 / total) * 100.0
+    p_x = (draw / total) * 100.0
+    p_2 = (w2 / total) * 100.0
+    p_o25 = (over25 / total) * 100.0
+    p_u25 = 100.0 - p_o25
+    p_by = (btts_yes / total) * 100.0
+    p_bn = 100.0 - p_by
+
+    top3 = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:3]
 
     st.divider()
-    if cov >= 48.0 and pct1 >= 12.5:
-        st.markdown(f'<div class="s-green">✅ High Stability: Top 5 cover {cov:.1f}% of probability</div>', unsafe_allow_html=True)
-    elif cov >= 40.0:
-        st.markdown(f'<div class="s-yellow">⚠️ Moderate Stability: Top 5 cover {cov:.1f}% (Caution)</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div class="s-red">🛑 High Volatility: {cov:.1f}% coverage (Avoid)</div>', unsafe_allow_html=True)
+    st.subheader("🎯 Top 3 Correct Scores")
+    c1, c2, c3 = st.columns(3)
+    medals = ["🥇 #1", "🥈 #2", "🥉 #3"]
+    for idx, (sc, pr) in enumerate(top3):
+        sc_pct = (pr / total) * 100.0
+        box_style = "c-green" if idx == 0 else "c-blue"
+        with [c1, c2, c3][idx]:
+            st.markdown(f'<div class="card {box_style}"><div class="c-title">{medals[idx]}</div><div class="c-val">{sc}</div><div style="font-size:13px;font-weight:700;">{sc_pct:.1f}%</div></div>', unsafe_allow_html=True)
 
-    st.subheader(f"🎯 {h_name} vs {a_name}")
-    st.markdown(f'<div class="cs-card cs-1"><div style="font-size:12px;color:#cbd5e1;">🥇 #1 Best Correct Score</div><div class="cs-sc">{s1}</div><div style="color:#34d399;font-weight:700;">Probability: {pct1:.1f}% | xG: {h_xg:.2f} - {a_xg:.2f}</div></div>', unsafe_allow_html=True)
+    st.subheader("🏆 Match Result (1 X 2)")
+    m1, m2, m3 = st.columns(3)
+    with m1: show_box(f"1 ({h_name[:12]})", f"{p_1:.1f}%", p_1)
+    with m2: show_box("X (Draw)", f"{p_x:.1f}%", p_x)
+    with m3: show_box(f"2 ({a_name[:12]})", f"{p_2:.1f}%", p_2)
 
-    c1, c2 = st.columns(2)
-    labels = ["🥈 #2 Option", "🥉 #3 Option", "4️⃣ #4 Option", "5️⃣ #5 Option"]
-    for idx in range(1, 5):
-        sc, pr = top5[idx]
-        cls = "cs-2" if idx < 3 else "cs-3"
-        with (c1 if idx % 2 == 1 else c2):
-            st.markdown(f'<div class="cs-card {cls}"><div style="font-size:12px;color:#cbd5e1;">{labels[idx-1]}</div><div class="cs-sc">{sc}</div><div style="color:#93c5fd;">{(pr/total)*100:.1f}%</div></div>', unsafe_allow_html=True)
+    st.subheader("⚽ Goals & Both Teams to Score")
+    g1, g2 = st.columns(2)
+    with g1: show_box("Over 2.5 Goals", f"{p_o25:.1f}%", p_o25)
+    with g2: show_box("Under 2.5 Goals", f"{p_u25:.1f}%", p_u25)
+
+    b1, b2 = st.columns(2)
+    with b1: show_box("BTTS: Yes", f"{p_by:.1f}%", p_by)
+    with b2: show_box("BTTS: No", f"{p_bn:.1f}%", p_bn)
 
 CLUBS_DB = {
     "🏆 UEFA Champions League (All 36 Teams)": {
@@ -144,5 +170,4 @@ else:
         st.markdown(f'<div class="team-box"><b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
 
     adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
-    if st.button("🎯 Predict Correct Score", use_container_width=True):
-        calculate_correct_scores(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
+    if st.button("🎯 Predict Match", use_container_width=True):
