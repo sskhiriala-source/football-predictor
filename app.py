@@ -1,6 +1,6 @@
 import streamlit as st, streamlit.components.v1 as components, math
 
-st.set_page_config(page_title="Predictor PRO", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="Predictor PRO 26/27", page_icon="🎯", layout="centered")
 components.html('<script>setInterval(()=>{window.parent.document.querySelectorAll(\'input[role="combobox"]\').forEach(e=>{e.setAttribute("readonly",1);e.setAttribute("inputmode","none")})},400)</script>', height=0)
 
 st.markdown("""<style>
@@ -21,8 +21,8 @@ def card(t, v, pct, force=None):
 
 def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
     d = (hp - ap) / 100
-    hx = max(.25, (hs*.6+ac*.4)*(1-hf/220)*(1-acs/220)*1.25*max(.55,min(1.65,1+d*1.4))*(1.12 if adv else 1))
-    ax = max(.25, (as_*.6+hc*.4)*(1-af/220)*(1-hcs/220)*1.25*max(.55,min(1.65,1-d*1.4))*(.94 if adv else 1))
+    hx = max(.25, (hs*.6+ac*.4)*(1-hf/220)*(1-acs/220)*1.15*max(.55,min(1.65,1+d*1.3))*(1.10 if adv else 1))
+    ax = max(.25, (as_*.6+hc*.4)*(1-af/220)*(1-hcs/220)*1.15*max(.55,min(1.65,1-d*1.3))*(.94 if adv else 1))
     sc, tot, w1, dr, w2, o25, by = {}, 0, 0, 0, 0, 0, 0
     for i in range(11):
         for j in range(11):
@@ -35,7 +35,7 @@ def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
             if i + j > 2.5: o25 += p
             if i > 0 and j > 0: by += p
     top3 = sorted(sc.items(), key=lambda x: x[1], reverse=True)[:3]
-    st.subheader("🎯 Top 3 Correct Scores")
+    st.subheader(f"🎯 Top 3 Correct Scores (xG: {hx:.2f} - {ax:.2f})")
     cols = st.columns(3)
     for k, (s, p) in enumerate(top3):
         with cols[k]: card(["🥇 #1","🥈 #2","🥉 #3"][k], f"{s} ({p/tot*100:.1f}%)", 0, "g" if k==0 else "b")
@@ -53,12 +53,22 @@ def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
     with b2: card("BTTS: No", f"{100-by/tot*100:.1f}%", 100-by/tot*100)
 
 DB = {
-    "🏆 Champions League (36)": {"Real Madrid":(2.3,.9,44,8,95),"Man City":(2.4,.9,42,8,95),"Bayern":(2.8,1,40,6,94),"Liverpool":(2.3,.7,50,8,94),"Barcelona":(2.7,1.1,34,6,93),"Inter":(2.1,.7,52,8,92),"Arsenal":(2.1,.7,52,10,92),"PSG":(2.4,.9,44,8,90),"Leverkusen":(2.3,1.2,30,8,89),"Atletico":(1.6,.7,54,16,88),"Dortmund":(2,1.4,24,12,86),"Juventus":(1.4,.6,58,22,86),"AC Milan":(1.8,1.2,32,14,85),"Atalanta":(2.4,1.1,34,10,87),"Aston Villa":(1.7,1.2,28,15,84),"Sporting CP":(2.5,.9,44,8,85),"Benfica":(2.1,1,40,10,83),"PSV":(2.4,1.2,30,10,81),"Feyenoord":(1.9,1.3,26,14,79),"Monaco":(1.8,1,38,14,82),"Lille":(1.6,.9,42,16,81),"Brest":(1.4,1.3,28,22,75),"Leipzig":(1.7,1.1,38,16,83),"Stuttgart":(1.9,1.4,24,14,80),"Girona":(1.4,1.4,25,22,77),"Bologna":(1.3,1.2,32,24,76),"Celtic":(2.2,1.3,30,12,76),"Club Brugge":(1.7,1.2,30,16,75),"Shakhtar":(1.6,1.4,24,18,73),"Salzburg":(1.5,1.6,20,20,72),"Sturm Graz":(1.3,1.6,18,24,69),"Sparta Prague":(1.5,1.5,22,20,71),"Dinamo Zagreb":(1.6,1.7,18,20,70),"Red Star":(1.6,1.8,16,20,69),"Young Boys":(1.2,1.9,14,28,67),"Slovan":(1.1,2.2,10,32,64)},
-    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League": {"Arsenal":(2.1,.7,52,10,92),"Man City":(2.4,.9,42,8,95),"Liverpool":(2.3,.7,50,8,94),"Chelsea":(2,1.1,30,12,87),"Aston Villa":(1.7,1.2,28,15,84),"Newcastle":(1.7,1.1,32,16,84),"Tottenham":(2,1.4,22,10,84),"Man United":(1.4,1.2,30,22,82),"Brighton":(1.7,1.3,25,16,81),"Nottm Forest":(1.4,1,38,22,80)},
-    "🇪🇸 La Liga": {"Real Madrid":(2.3,.9,44,8,95),"Barcelona":(2.7,1.1,34,6,93),"Atletico":(1.6,.7,54,16,88),"Bilbao":(1.6,.9,42,18,84),"Villarreal":(1.9,1.5,22,12,82),"Sociedad":(1.2,.9,44,28,81),"Betis":(1.3,1.1,34,24,79),"Sevilla":(1.2,1.4,24,28,75)},
-    "🇮🇹 Serie A": {"Inter":(2.1,.7,52,8,92),"Atalanta":(2.4,1.1,34,10,87),"Napoli":(1.8,.7,54,14,88),"Juventus":(1.4,.6,58,22,86),"AC Milan":(1.8,1.2,32,14,85),"Lazio":(1.8,1.2,30,15,83),"Fiorentina":(1.8,.9,42,15,83),"AS Roma":(1.3,1.4,26,26,78)},
-    "🇩🇪 Bundesliga": {"Bayern":(2.8,1,40,6,94),"Leverkusen":(2.3,1.2,30,8,89),"Frankfurt":(2.1,1.3,28,10,84),"Leipzig":(1.7,1.1,38,16,83),"Dortmund":(2,1.4,24,12,86),"Stuttgart":(1.9,1.4,24,14,80)},
-    "🇫🇷 Ligue 1": {"PSG":(2.4,.9,44,8,90),"Monaco":(1.8,1,38,14,82),"Marseille":(2,1.2,30,12,82),"Lille":(1.6,.9,42,16,81),"Lyon":(1.8,1.3,26,15,80),"Nice":(1.7,1.1,34,18,79)},
+    "🏆 UCL 2026/2027 (36 Teams)": {
+        "PSG":(3.5,1.25,40,5,96),"Real Madrid":(3.25,1.75,30,5,95),"Aston Villa":(2.4,1.2,40,20,90),"Arsenal":(2.0,.75,55,10,93),
+        "Como":(3.4,1.5,30,10,88),"Barcelona":(3.5,1.5,30,5,94),"Manchester City":(3.0,1.75,30,8,94),"Liverpool":(3.5,2.5,20,8,92),
+        "Club Brugge KV":(2.75,1.75,28,12,86),"Sporting CP":(2.0,1.0,45,12,88),"Betis":(2.0,1.5,32,15,86),"Dortmund":(1.75,1.25,38,15,87),
+        "Bayern Munich":(3.0,1.25,40,8,93),"Stuttgart":(1.75,1.0,45,15,85),"LASK":(2.0,1.8,35,20,81),"Galatasaray":(1.6,1.8,35,20,82),
+        "Inter":(2.0,1.5,35,12,89),"Manchester Utd":(2.0,2.0,25,12,85),"Fenerbahce":(1.5,2.75,18,20,79),"Bodo/Glimt":(0.8,1.8,35,30,78),
+        "AS Roma":(2.5,2.0,22,12,82),"Shakhtar Donetsk":(1.0,1.0,45,25,80),"Viking":(2.25,2.5,18,15,77),"Atl. Madrid":(1.0,1.25,42,25,84),
+        "PSV":(0.75,1.0,45,30,81),"FC Porto":(1.5,1.75,28,20,80),"Napoli":(1.5,2.75,18,22,80),"Villarreal":(2.0,3.5,12,15,79),
+        "AEK Athens":(1.25,2.75,18,25,75),"RB Leipzig":(1.25,2.75,18,25,79),"Sabah FC":(1.0,2.5,20,30,72),"Feyenoord":(1.0,2.75,18,30,76),
+        "Lens":(1.0,4.0,10,32,74),"Slavia Prague":(1.25,2.25,22,25,73),"Lille":(1.0,2.5,20,30,74),"Slovan Bratislava":(0.25,4.25,8,75,65)
+    },
+    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League": {"Arsenal":(2.1,.7,52,10,93),"Manchester City":(2.5,1.1,40,8,94),"Liverpool":(2.6,1.2,38,8,93),"Aston Villa":(2.1,1.1,40,12,89),"Chelsea":(2.0,1.1,32,12,87),"Newcastle":(1.7,1.1,32,16,84),"Tottenham":(2.0,1.4,22,10,84),"Manchester Utd":(1.7,1.4,28,16,84)},
+    "🇪🇸 La Liga": {"Real Madrid":(2.6,1.1,40,6,95),"Barcelona":(2.8,1.2,34,6,94),"Atl. Madrid":(1.5,.8,50,18,86),"Betis":(1.8,1.2,34,15,85),"Villarreal":(1.9,1.8,20,14,81),"Athletic Bilbao":(1.6,.9,42,18,84)},
+    "🇮🇹 Serie A": {"Inter":(2.1,.9,46,10,91),"Como":(2.4,1.3,32,10,86),"Atalanta":(2.3,1.1,34,10,87),"Juventus":(1.5,.6,56,20,86),"AC Milan":(1.8,1.2,32,14,85),"Napoli":(1.6,1.3,30,18,83),"AS Roma":(1.8,1.5,25,15,82)},
+    "🇩🇪 Bundesliga": {"Bayern Munich":(2.9,1.0,42,6,94),"Leverkusen":(2.3,1.2,30,8,89),"Dortmund":(1.9,1.2,32,12,87),"Stuttgart":(1.8,1.1,38,14,85),"RB Leipzig":(1.6,1.4,26,18,82)},
+    "🇫🇷 Ligue 1": {"PSG":(2.8,.9,45,6,95),"Monaco":(1.8,1.0,38,14,83),"Marseille":(2.0,1.2,30,12,82),"Lille":(1.4,1.4,28,22,79),"Lens":(1.3,1.6,22,25,77)},
     "🇹🇳 Tunisia & CAF": {"Esperance":(1.9,.6,56,10,82),"Club Africain":(1.5,.6,56,18,78),"Etoile Sahel":(1.4,.8,45,20,76),"CS Sfaxien":(1.1,.8,46,28,73),"US Monastir":(1.4,.7,50,20,76),"Al Ahly":(2.1,.6,58,10,85),"Sundowns":(2,.6,56,12,84)}
 }
 
