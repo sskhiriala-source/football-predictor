@@ -34,7 +34,7 @@ def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
             else: w2 += p
             if i + j > 2.5: o25 += p
             if i > 0 and j > 0: by += p
-    top3 = sorted(sc.items(), key=lambda x: x, reverse=True)[:3]
+        top3 = sorted(sc.items(), key=lambda item: item, reverse=True)[:3]
     st.subheader(f"🎯 Top 3 Correct Scores (xG: {hx:.2f} - {ax:.2f})")
     cols = st.columns(3)
     for k, (s, p) in enumerate(top3):
