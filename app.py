@@ -1,7 +1,22 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import math
 
 st.set_page_config(page_title="Match Predictor PRO", page_icon="🎯", layout="centered")
+
+# Disable mobile keyboard on selectbox dropdowns (Touch-only selection)
+components.html("""
+<script>
+const doc = window.parent.document;
+function lockInputs() {
+    doc.querySelectorAll('input[role="combobox"]').forEach(el => {
+        el.setAttribute('readonly', true);
+        el.setAttribute('inputmode', 'none');
+    });
+}
+setInterval(lockInputs, 400);
+</script>
+""", height=0)
 
 st.markdown("""
 <style>
@@ -27,7 +42,7 @@ label, .stMarkdown p, h1, h2, h3 { color: #f1f5f9 !important; }
 def poisson_prob(k, lam):
     return (math.pow(lam, k) * math.exp(-lam)) / math.factorial(k)
 
-def dixon_coles(x, y, lx, ly, rho=-0.13):
+def dixon_coles(x, y, lx, ly, rho=-0.04):
     if x == 0 and y == 0: return 1.0 - (lx * ly * rho)
     if x == 0 and y == 1: return 1.0 + (lx * rho)
     if x == 1 and y == 0: return 1.0 + (ly * rho)
@@ -43,10 +58,16 @@ def show_box(title, val_str, pct_for_color):
     cls = color_cls(pct_for_color)
     st.markdown(f'<div class="card {cls}"><div class="c-title">{title}</div><div class="c-val">{val_str}</div></div>', unsafe_allow_html=True)
 
-def analyze_match(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_fts, a_cs, a_fts, adv):
-    h_xg = max(0.2, ((h_sc + a_con) / 2.0) * (1.0 - h_fts / 200.0) * (1.0 - a_cs / 200.0) * 1.35)
-    a_xg = max(0.2, ((a_sc + h_con) / 2.0) * (1.0 - a_fts / 200.0) * (1.0 - h_cs / 200.0) * 1.35)
-    if adv: h_xg *= 1.08
+def analyze_match(h_name, a_name, h_sc, h_con, h_cs, h_fts, h_pwr, a_sc, a_con, a_cs, a_fts, a_pwr, adv):
+    pwr_diff = (h_pwr - a_pwr) / 100.0
+    h_pwr_mult = max(0.55, min(1.65, 1.0 + pwr_diff * 1.4))
+    a_pwr_mult = max(0.55, min(1.65, 1.0 - pwr_diff * 1.4))
+
+    base_h = (h_sc * 0.6 + a_con * 0.4) * (1.0 - h_fts / 220.0) * (1.0 - a_cs / 220.0) * 1.25
+    base_a = (a_sc * 0.6 + h_con * 0.4) * (1.0 - a_fts / 220.0) * (1.0 - h_cs / 220.0) * 1.25
+
+    h_xg = max(0.25, base_h * h_pwr_mult * (1.12 if adv else 1.0))
+    a_xg = max(0.25, base_a * a_pwr_mult * (0.94 if adv else 1.0))
 
     scores = {}
     total, w1, draw, w2, over25, btts_yes = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
@@ -73,7 +94,7 @@ def analyze_match(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_fts, a_cs, a
     top3 = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:3]
 
     st.divider()
-    st.subheader("🎯 Top 3 Correct Scores")
+    st.subheader(f"🎯 Top 3 Correct Scores (xG: {h_xg:.2f} - {a_xg:.2f})")
     c1, c2, c3 = st.columns(3)
     medals = ["🥇 #1", "🥈 #2", "🥉 #3"]
     for idx, (sc, pr) in enumerate(top3):
@@ -99,51 +120,51 @@ def analyze_match(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_fts, a_cs, a
 
 CLUBS_DB = {
     "🏆 UEFA Champions League (All 36 Teams)": {
-        "Real Madrid": (2.2, 0.8, 46, 10), "Manchester City": (2.3, 0.9, 40, 8), "Bayern Munich": (2.7, 0.8, 48, 6),
-        "Liverpool": (2.2, 0.8, 45, 10), "FC Barcelona": (2.5, 1.0, 38, 8), "Inter Milan": (2.2, 0.8, 48, 8),
-        "Arsenal": (2.1, 0.7, 50, 10), "Paris Saint-Germain": (2.5, 0.8, 46, 8), "Bayer Leverkusen": (2.2, 1.2, 32, 8),
-        "Atletico Madrid": (1.7, 0.7, 52, 15), "Borussia Dortmund": (1.9, 1.4, 26, 14), "Juventus": (1.5, 0.6, 56, 20),
-        "AC Milan": (1.7, 1.1, 34, 16), "Atalanta": (2.3, 1.1, 35, 10), "Aston Villa": (1.7, 1.2, 28, 15),
-        "Sporting CP": (2.4, 0.9, 45, 8), "Benfica": (2.1, 0.9, 44, 10), "PSV Eindhoven": (2.5, 1.0, 40, 8),
-        "Feyenoord": (2.0, 1.2, 30, 12), "AS Monaco": (1.8, 0.9, 42, 14), "LOSC Lille": (1.6, 0.9, 44, 16),
-        "Stade Brestois": (1.5, 1.3, 28, 20), "RB Leipzig": (1.6, 0.9, 46, 18), "VfB Stuttgart": (1.9, 1.4, 24, 14),
-        "Girona": (1.5, 1.3, 28, 20), "Bologna": (1.4, 1.1, 34, 22), "Celtic": (2.4, 0.9, 44, 8),
-        "Club Brugge": (1.9, 1.1, 34, 14), "Shakhtar Donetsk": (1.8, 1.2, 30, 15), "Red Bull Salzburg": (1.7, 1.3, 28, 16),
-        "Sturm Graz": (1.6, 1.3, 26, 18), "Sparta Prague": (1.8, 1.2, 32, 15), "Dinamo Zagreb": (1.9, 1.2, 32, 14),
-        "Red Star Belgrade": (2.0, 1.3, 30, 14), "Young Boys": (1.5, 1.5, 22, 20), "Slovan Bratislava": (1.5, 1.6, 20, 22)
+        "Real Madrid": (2.3, 0.9, 44, 8, 95), "Manchester City": (2.4, 0.9, 42, 8, 95), "Bayern Munich": (2.8, 1.0, 40, 6, 94),
+        "Liverpool": (2.3, 0.7, 50, 8, 94), "FC Barcelona": (2.7, 1.1, 34, 6, 93), "Inter Milan": (2.1, 0.7, 52, 8, 92),
+        "Arsenal": (2.1, 0.7, 52, 10, 92), "Paris Saint-Germain": (2.4, 0.9, 44, 8, 90), "Bayer Leverkusen": (2.3, 1.2, 30, 8, 89),
+        "Atletico Madrid": (1.6, 0.7, 54, 16, 88), "Borussia Dortmund": (2.0, 1.4, 24, 12, 86), "Juventus": (1.4, 0.6, 58, 22, 86),
+        "AC Milan": (1.8, 1.2, 32, 14, 85), "Atalanta": (2.4, 1.1, 34, 10, 87), "Aston Villa": (1.7, 1.2, 28, 15, 84),
+        "Sporting CP": (2.5, 0.9, 44, 8, 85), "Benfica": (2.1, 1.0, 40, 10, 83), "PSV Eindhoven": (2.4, 1.2, 30, 10, 81),
+        "Feyenoord": (1.9, 1.3, 26, 14, 79), "AS Monaco": (1.8, 1.0, 38, 14, 82), "LOSC Lille": (1.6, 0.9, 42, 16, 81),
+        "Stade Brestois": (1.4, 1.3, 28, 22, 75), "RB Leipzig": (1.7, 1.1, 38, 16, 83), "VfB Stuttgart": (1.9, 1.4, 24, 14, 80),
+        "Girona": (1.4, 1.4, 25, 22, 77), "Bologna": (1.3, 1.2, 32, 24, 76), "Celtic": (2.2, 1.3, 30, 12, 76),
+        "Club Brugge": (1.7, 1.2, 30, 16, 75), "Shakhtar Donetsk": (1.6, 1.4, 24, 18, 73), "Red Bull Salzburg": (1.5, 1.6, 20, 20, 72),
+        "Sturm Graz": (1.3, 1.6, 18, 24, 69), "Sparta Prague": (1.5, 1.5, 22, 20, 71), "Dinamo Zagreb": (1.6, 1.7, 18, 20, 70),
+        "Red Star Belgrade": (1.6, 1.8, 16, 20, 69), "Young Boys": (1.2, 1.9, 14, 28, 67), "Slovan Bratislava": (1.1, 2.2, 10, 32, 64)
     },
     "🏴󠁧󠁢󠁥󠁮󠁧󠁿 English Premier League": {
-        "Arsenal": (2.1, 0.7, 50, 10), "Manchester City": (2.3, 0.9, 40, 8), "Liverpool": (2.2, 0.8, 45, 10),
-        "Chelsea": (1.8, 1.1, 30, 15), "Aston Villa": (1.7, 1.2, 28, 15), "Newcastle United": (1.7, 1.1, 32, 16),
-        "Tottenham Hotspur": (1.9, 1.4, 22, 12), "Manchester United": (1.4, 1.2, 30, 22), "Brighton": (1.6, 1.3, 25, 18),
-        "West Ham": (1.3, 1.5, 20, 25), "Fulham": (1.4, 1.3, 25, 22), "Bournemouth": (1.5, 1.4, 22, 20),
-        "Brentford": (1.6, 1.5, 20, 18), "Crystal Palace": (1.2, 1.3, 28, 28), "Nottingham Forest": (1.3, 1.1, 35, 24),
-        "Everton": (1.1, 1.3, 30, 32), "Wolves": (1.2, 1.7, 15, 26), "Leicester City": (1.2, 1.8, 15, 28)
+        "Arsenal": (2.1, 0.7, 52, 10, 92), "Manchester City": (2.4, 0.9, 42, 8, 95), "Liverpool": (2.3, 0.7, 50, 8, 94),
+        "Chelsea": (2.0, 1.1, 30, 12, 87), "Aston Villa": (1.7, 1.2, 28, 15, 84), "Newcastle United": (1.7, 1.1, 32, 16, 84),
+        "Tottenham Hotspur": (2.0, 1.4, 22, 10, 84), "Manchester United": (1.4, 1.2, 30, 22, 82), "Brighton": (1.7, 1.3, 25, 16, 81),
+        "West Ham": (1.3, 1.6, 18, 25, 76), "Fulham": (1.5, 1.3, 25, 20, 78), "Bournemouth": (1.5, 1.4, 22, 20, 78),
+        "Brentford": (1.7, 1.6, 18, 16, 77), "Crystal Palace": (1.1, 1.4, 26, 30, 74), "Nottingham Forest": (1.4, 1.0, 38, 22, 80),
+        "Everton": (1.0, 1.4, 28, 34, 72), "Wolves": (1.3, 1.9, 12, 24, 71), "Leicester City": (1.2, 1.9, 14, 28, 70)
     },
     "🇪🇸 Spanish La Liga": {
-        "Real Madrid": (2.2, 0.8, 46, 10), "FC Barcelona": (2.5, 1.0, 38, 8), "Atletico Madrid": (1.7, 0.7, 52, 15),
-        "Athletic Bilbao": (1.6, 0.9, 42, 18), "Villarreal": (1.8, 1.4, 24, 14), "Real Sociedad": (1.2, 0.9, 44, 28),
-        "Real Betis": (1.3, 1.1, 34, 24), "Girona": (1.5, 1.3, 28, 20), "Osasuna": (1.3, 1.3, 28, 25),
-        "Celta Vigo": (1.5, 1.5, 20, 20), "Mallorca": (1.0, 1.0, 38, 34), "Sevilla": (1.2, 1.3, 26, 28)
+        "Real Madrid": (2.3, 0.9, 44, 8, 95), "FC Barcelona": (2.7, 1.1, 34, 6, 93), "Atletico Madrid": (1.6, 0.7, 54, 16, 88),
+        "Athletic Bilbao": (1.6, 0.9, 42, 18, 84), "Villarreal": (1.9, 1.5, 22, 12, 82), "Real Sociedad": (1.2, 0.9, 44, 28, 81),
+        "Real Betis": (1.3, 1.1, 34, 24, 79), "Girona": (1.4, 1.4, 25, 22, 77), "Osasuna": (1.3, 1.4, 26, 25, 76),
+        "Celta Vigo": (1.5, 1.6, 18, 20, 75), "Mallorca": (1.0, 1.0, 40, 34, 76), "Sevilla": (1.2, 1.4, 24, 28, 75)
     },
     "🇮🇹 Italian Serie A": {
-        "Inter Milan": (2.2, 0.8, 48, 8), "Atalanta": (2.3, 1.1, 35, 10), "Napoli": (1.7, 0.7, 54, 15),
-        "Juventus": (1.5, 0.6, 56, 20), "AC Milan": (1.7, 1.1, 34, 16), "Lazio": (1.8, 1.2, 30, 15),
-        "Fiorentina": (1.8, 0.9, 42, 15), "Bologna": (1.4, 1.1, 34, 22), "AS Roma": (1.3, 1.3, 28, 25)
+        "Inter Milan": (2.1, 0.7, 52, 8, 92), "Atalanta": (2.4, 1.1, 34, 10, 87), "Napoli": (1.8, 0.7, 54, 14, 88),
+        "Juventus": (1.4, 0.6, 58, 22, 86), "AC Milan": (1.8, 1.2, 32, 14, 85), "Lazio": (1.8, 1.2, 30, 15, 83),
+        "Fiorentina": (1.8, 0.9, 42, 15, 83), "Bologna": (1.3, 1.2, 32, 24, 76), "AS Roma": (1.3, 1.4, 26, 26, 78)
     },
     "🇩🇪 German Bundesliga": {
-        "Bayern Munich": (2.7, 0.8, 48, 6), "Bayer Leverkusen": (2.2, 1.2, 32, 8), "Eintracht Frankfurt": (2.1, 1.3, 28, 10),
-        "RB Leipzig": (1.6, 0.9, 46, 18), "Borussia Dortmund": (1.9, 1.4, 26, 14), "VfB Stuttgart": (1.9, 1.4, 24, 14)
+        "Bayern Munich": (2.8, 1.0, 40, 6, 94), "Bayer Leverkusen": (2.3, 1.2, 30, 8, 89), "Eintracht Frankfurt": (2.1, 1.3, 28, 10, 84),
+        "RB Leipzig": (1.7, 1.1, 38, 16, 83), "Borussia Dortmund": (2.0, 1.4, 24, 12, 86), "VfB Stuttgart": (1.9, 1.4, 24, 14, 80)
     },
     "🇫🇷 French Ligue 1": {
-        "Paris Saint-Germain": (2.5, 0.8, 46, 8), "AS Monaco": (1.8, 0.9, 42, 14), "Olympique Marseille": (2.0, 1.2, 30, 12),
-        "LOSC Lille": (1.6, 0.9, 44, 16), "Olympique Lyon": (1.8, 1.3, 26, 15), "OGC Nice": (1.7, 1.1, 34, 18)
+        "Paris Saint-Germain": (2.4, 0.9, 44, 8, 90), "AS Monaco": (1.8, 1.0, 38, 14, 82), "Olympique Marseille": (2.0, 1.2, 30, 12, 82),
+        "LOSC Lille": (1.6, 0.9, 42, 16, 81), "Olympique Lyon": (1.8, 1.3, 26, 15, 80), "OGC Nice": (1.7, 1.1, 34, 18, 79)
     },
     "🇹🇳 Tunisian Ligue 1 & CAF": {
-        "Esperance Sportive de Tunis": (1.8, 0.6, 55, 12), "Club Africain": (1.5, 0.6, 56, 18),
-        "Etoile Sportive du Sahel": (1.4, 0.8, 45, 20), "CS Sfaxien": (1.2, 0.8, 46, 26),
-        "US Monastir": (1.4, 0.7, 50, 20), "Stade Tunisien": (1.4, 0.8, 44, 22),
-        "Al Ahly SC": (2.0, 0.6, 58, 10), "Mamelodi Sundowns": (1.9, 0.6, 56, 12)
+        "Esperance Sportive de Tunis": (1.9, 0.6, 56, 10, 82), "Club Africain": (1.5, 0.6, 56, 18, 78),
+        "Etoile Sportive du Sahel": (1.4, 0.8, 45, 20, 76), "CS Sfaxien": (1.1, 0.8, 46, 28, 73),
+        "US Monastir": (1.4, 0.7, 50, 20, 76), "Stade Tunisien": (1.4, 0.8, 44, 22, 75),
+        "Al Ahly SC": (2.1, 0.6, 58, 10, 85), "Mamelodi Sundowns": (2.0, 0.6, 56, 12, 84)
     }
 }
 
@@ -153,20 +174,3 @@ team_names = sorted(list(teams_dict.keys()))
 
 col_sel1, col_sel2 = st.columns(2)
 with col_sel1:
-    hn = st.selectbox("2️⃣ Home Team:", team_names, index=0)
-with col_sel2:
-    an = st.selectbox("3️⃣ Away Team:", team_names, index=1 if len(team_names) > 1 else 0)
-
-adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
-
-if hn == an:
-    st.warning("⚠️ Please select two different teams.")
-else:
-    hsc, hcon, hcs, hfts = teams_dict[hn]
-    asc, acon, acs, afts = teams_dict[an]
-    ch, ca = st.columns(2)
-    with ch:
-        st.markdown(f'<div class="team-box"><b>🏠 {hn}</b><br><span style="color:#34d399;font-size:12px;">GF: {hsc} | GA: {hcon}<br>CS: {hcs}% | FTS: {hfts}%</span></div>', unsafe_allow_html=True)
-    with ca:
-        st.markdown(f'<div class="team-box"><b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
-    analyze_match(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
