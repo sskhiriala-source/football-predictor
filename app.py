@@ -19,7 +19,6 @@ header[data-testid="stHeader"] { background: transparent; }
 .c-blue { background: rgba(59,130,246,0.20); border: 1.5px solid #3b82f6; color: #60a5fa; }
 .c-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
 .c-val { font-size: 22px; font-weight: 900; }
-.stButton > button { background: linear-gradient(90deg, #10b981, #059669) !important; color: white !important; font-weight: 800 !important; font-size: 16px !important; border-radius: 12px !important; padding: 12px !important; }
 label, .stMarkdown p, h1, h2, h3 { color: #f1f5f9 !important; }
 </style>
 <div class="hero"><div class="hero-t">🎯 Match Predictor PRO</div><div style="color:#94a3b8;font-size:12px;">Top 3 Correct Scores • 1X2 • Over/Under 2.5 • BTTS</div></div>
@@ -158,6 +157,8 @@ with col_sel1:
 with col_sel2:
     an = st.selectbox("3️⃣ Away Team:", team_names, index=1 if len(team_names) > 1 else 0)
 
+adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
+
 if hn == an:
     st.warning("⚠️ Please select two different teams.")
 else:
@@ -168,6 +169,4 @@ else:
         st.markdown(f'<div class="team-box"><b>🏠 {hn}</b><br><span style="color:#34d399;font-size:12px;">GF: {hsc} | GA: {hcon}<br>CS: {hcs}% | FTS: {hfts}%</span></div>', unsafe_allow_html=True)
     with ca:
         st.markdown(f'<div class="team-box"><b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
-
-    adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
-    if st.button("🎯 Predict Match", use_container_width=True):
+    analyze_match(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
