@@ -2,21 +2,22 @@ import streamlit as st
 import math
 import json
 import urllib.request
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="متنبئ النتيجة الدقيقة PRO", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="Correct Score Predictor PRO", page_icon="🎯", layout="centered")
 
-# تصميم ليلي احترافي مع التلوين الشرطي
+# Professional Dark Stadium Theme with Conditional Formatting (LTR English)
 st.markdown("""
 <style>
     @import url('https://googleapis.com');
 
     html, body, [class*="css"] {
-        font-family: 'Cairo', sans-serif !important;
+        font-family: 'Inter', sans-serif !important;
     }
 
     .stApp {
-        direction: rtl;
-        text-align: right;
+        direction: ltr;
+        text-align: left;
         background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.22) 0%, transparent 55%),
                     linear-gradient(160deg, #070b14 0%, #0d192b 50%, #061714 100%);
         color: #f8fafc;
@@ -52,7 +53,7 @@ st.markdown("""
         margin-bottom: 12px;
     }
 
-    /* بطاقات النتيجة الدقيقة بالتلوين الشرطي */
+    /* Conditional Color Cards for Correct Score */
     .cs-card {
         border-radius: 16px;
         padding: 16px 10px;
@@ -77,7 +78,7 @@ st.markdown("""
     .cs-score { font-size: 28px; font-weight: 900; color: #ffffff; letter-spacing: 2px; }
     .cs-pct { font-size: 14px; font-weight: 700; color: #34d399; margin-top: 4px; }
 
-    /* شريط حالة الأمان */
+    /* Safety & Stability Banner */
     .safety-green {
         background: rgba(16, 185, 129, 0.18);
         border: 1.5px solid #10b981;
@@ -113,7 +114,7 @@ st.markdown("""
         background: linear-gradient(90deg, #10b981, #059669) !important;
         color: white !important;
         font-weight: 800 !important;
-        font-size: 17px !important;
+        font-size: 16px !important;
         border: none !important;
         border-radius: 12px !important;
         padding: 12px !important;
@@ -124,16 +125,14 @@ st.markdown("""
 
 st.markdown("""
 <div class="hero-banner">
-    <div class="hero-title">🎯 محلل النتيجة الدقيقة (Correct Score)</div>
-    <div class="hero-sub">نموذج Dixon-Coles المتقدم • مصفوفة 10×10 • فلتر الاستقرار الإحصائي</div>
+    <div class="hero-title">🎯 Correct Score Predictor PRO</div>
+    <div class="hero-sub">Dixon-Coles Model • 10×10 Goal Matrix • Statistical Stability Filter</div>
 </div>
 """, unsafe_allow_html=True)
 
-# دالة بواسون الأساسية
 def poisson_prob(k, lam):
     return (math.pow(lam, k) * math.exp(-lam)) / math.factorial(k)
 
-# عامل تصحيح Dixon-Coles للنتائج المنخفضة (0-0, 1-0, 0-1, 1-1)
 def dixon_coles_tau(x, y, lam_x, lam_y, rho=-0.13):
     if x == 0 and y == 0:
         return 1 - (lam_x * lam_y * rho)
@@ -147,11 +146,9 @@ def dixon_coles_tau(x, y, lam_x, lam_y, rho=-0.13):
         return 1.0
 
 def calculate_correct_scores(home_team, away_team, h_scored, h_conceded, a_scored, a_conceded, h_cs_pct, h_fts_pct, a_cs_pct, a_fts_pct, home_adv):
-    # حساب الأهداف المتوقعة الأساسية
     base_h_xg = (h_scored + a_conceded) / 2
     base_a_xg = (a_scored + h_conceded) / 2
 
-    # تعديل الأهداف المتوقعة بناءً على الشباك النظيفة والفشل في التسجيل
     h_attack_factor = 1 - (h_fts_pct / 200)
     a_defense_factor = 1 - (a_cs_pct / 200)
     a_attack_factor = 1 - (a_fts_pct / 200)
@@ -166,7 +163,6 @@ def calculate_correct_scores(home_team, away_team, h_scored, h_conceded, a_score
     scores = {}
     total_prob = 0.0
 
-    # مصفوفة شاملة حتى 10 أهداف لكل فريق
     for i in range(11):
         for j in range(11):
             p = poisson_prob(i, home_xg) * poisson_prob(j, away_xg) * dixon_coles_tau(i, j, home_xg, away_xg)
@@ -174,7 +170,6 @@ def calculate_correct_scores(home_team, away_team, h_scored, h_conceded, a_score
             scores[f"{i} - {j}"] = p
             total_prob += p
 
-    # ترتيب النتائج من الأعلى احتمالاً إلى الأقل
     sorted_scores = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     top5 = sorted_scores[:5]
     top5_coverage = sum(p for _, p in top5) / total_prob * 100
@@ -182,89 +177,112 @@ def calculate_correct_scores(home_team, away_team, h_scored, h_conceded, a_score
 
     st.divider()
 
-    # فلتر الأمان والاستقرار الإحصائي
+    # Safety & Stability Filter
     if top5_coverage >= 48.0 and top1_pct >= 12.5:
         st.markdown(f"""
         <div class="safety-green">
-            ✅ مؤشر استقرار عالٍ: احتمالية انحصار النتيجة ضمن القائمة بالأسفل هي {top5_coverage:.1f}%
+            ✅ High Stability: Top 5 scorelines cover {top5_coverage:.1f}% of total match probability
         </div>
         """, unsafe_allow_html=True)
     elif top5_coverage >= 40.0:
         st.markdown(f"""
         <div class="safety-yellow">
-            ⚠️ مؤشر استقرار متوسط: التغطية الإحصائية لأعلى 5 نتائج هي {top5_coverage:.1f}% (يُنصح بالحذر)
+            ⚠️ Moderate Stability: Top 5 coverage is {top5_coverage:.1f}% (Proceed with caution)
         </div>
         """, unsafe_allow_html=True)
     else:
         st.markdown(f"""
         <div class="safety-red">
-            🛑 مباراة عالية التذبذب: تشتت الأهداف كبير (التغطية {top5_coverage:.1f}% فقط - يُفضل تجنبها)
+            🛑 High Volatility Match: High goal variance ({top5_coverage:.1f}% coverage - Avoid)
         </div>
         """, unsafe_allow_html=True)
 
-    st.subheader(f"🎯 أقرب النتائج الصحيحة لمباراة {home_team} و {away_team}")
+    st.subheader(f"🎯 Top Correct Scores: {home_team} vs {away_team}")
 
-    # عرض النتيجة الأولى الأبرز
     s1_score, s1_prob = top5[0]
     s1_pct = (s1_prob / total_prob) * 100
     st.markdown(f"""
     <div class="cs-card cs-top1">
-        <div class="cs-rank">🥇 النتيجة الصحيحة الأولى (الأقوى ترجيحاً)</div>
+        <div class="cs-rank">🥇 #1 Most Likely Correct Score</div>
         <div class="cs-score">{s1_score}</div>
-        <div class="cs-pct">نسبة التحقق: {s1_pct:.1f}% | الأهداف المتوقعة: ({home_xg:.2f} - {away_xg:.2f})</div>
+        <div class="cs-pct">Probability: {s1_pct:.1f}% | Expected Goals (xG): {home_xg:.2f} - {away_xg:.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # عرض النتائج البديلة من 2 إلى 5
     col_a, col_b = st.columns(2)
     for idx in range(1, 5):
         sc, pr = top5[idx]
         pct = (pr / total_prob) * 100
         css_cls = "cs-top2" if idx in [1, 2] else "cs-top3"
-        medal = ["🥈 الاحتمال الثاني", "🥉 الاحتمال الثالث", "4️⃣ الاحتمال الرابع", "5️⃣ الاحتمال الخامس"][idx - 1]
+        medal = ["🥈 #2 Option", "🥉 #3 Option", "4️⃣ #4 Option", "5️⃣ #5 Option"][idx - 1]
         target_col = col_a if idx % 2 == 1 else col_b
         with target_col:
             st.markdown(f"""
             <div class="cs-card {css_cls}">
                 <div class="cs-rank">{medal}</div>
                 <div class="cs-score">{sc}</div>
-                <div class="cs-pct" style="color:#93c5fd;">النسبة: {pct:.1f}%</div>
+                <div class="cs-pct" style="color:#93c5fd;">Probability: {pct:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
-# دوال الجلب التلقائي من TheSportsDB
 @st.cache_data(ttl=1800)
 def fetch_json(url):
     try:
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:
             return json.loads(resp.read().decode())
     except Exception:
         return None
 
-def get_team_detailed_stats(team_id):
-    data = fetch_json(f"https://thesportsdb.com{team_id}")
-    if not data or not data.get("results"):
+def parse_score(sc_obj):
+    if isinstance(sc_obj, dict):
+        return int(float(sc_obj.get("value", 0)))
+    try:
+        return int(float(sc_obj))
+    except Exception:
+        return 0
+
+@st.cache_data(ttl=1800)
+def get_espn_team_stats(league_code, team_id):
+    data = fetch_json(f"https://espn.com{league_code}/teams/{team_id}/schedule")
+    if not data or not data.get("events"):
         return 1.4, 1.2, 25, 25
+
+    completed = []
+    for ev in data["events"]:
+        comps = ev.get("competitions", [])
+        if not comps:
+            continue
+        status = comps[0].get("status", {}).get("type", {})
+        if status.get("completed") is True:
+            completed.append(comps[0])
+
+    last5 = completed[-5:]
+    if not last5:
+        return 1.4, 1.2, 25, 25
+
     scored, conceded, cs, fts, count = 0, 0, 0, 0, 0
-    for m in data["results"][:5]:
-        hs = m.get("intHomeScore")
-        as_ = m.get("intAwayScore")
-        if hs is not None and as_ is not None:
-            hs, as_ = int(hs), int(as_)
-            if str(m.get("idHomeTeam")) == str(team_id):
-                team_s, team_c = hs, as_
+    for comp in last5:
+        competitors = comp.get("competitors", [])
+        if len(competitors) < 2:
+            continue
+        team_s, team_c = 0, 0
+        for c in competitors:
+            if str(c.get("id")) == str(team_id) or str(c.get("team", {}).get("id")) == str(team_id):
+                team_s = parse_score(c.get("score"))
             else:
-                team_s, team_c = as_, hs
-            scored += team_s
-            conceded += team_c
-            if team_c == 0:
-                cs += 1
-            if team_s == 0:
-                fts += 1
-            count += 1
+                team_c = parse_score(c.get("score"))
+        scored += team_s
+        conceded += team_c
+        if team_c == 0:
+            cs += 1
+        if team_s == 0:
+            fts += 1
+        count += 1
+
     if count == 0:
         return 1.4, 1.2, 25, 25
+
     return (
         round(scored / count, 2),
         round(conceded / count, 2),
@@ -272,20 +290,17 @@ def get_team_detailed_stats(team_id):
         int((fts / count) * 100)
     )
 
-tab_auto, tab_manual = st.tabs(["⚡ جلب تلقائي للمباريات", "✍️ إدخال يدوي دقيق"])
+tab_auto, tab_manual = st.tabs(["⚡ Auto-Fetch Fixtures", "✍️ Manual Stats Input"])
 
 with tab_auto:
     leagues = {
-        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 الدوري الإنجليزي الممتاز": "4328",
-        "🇪🇸 الدوري الإسباني": "4335",
-        "🇮🇹 الدوري الإيطالي": "4332",
-        "🇩🇪 الدوري الألماني": "4331",
-        "🇫🇷 الدوري الفرنسي": "4334",
-        "🏆 دوري أبطال أوروبا": "4480"
+        "🏆 UEFA Champions League": "uefa.champions",
+        "🏴󠁧󠁢󠁥󠁮󠁧󠁿 English Premier League": "eng.1",
+        "🇪🇸 Spanish La Liga": "esp.1",
+        "🇮🇹 Italian Serie A": "ita.1",
+        "🇩🇪 German Bundesliga": "ger.1",
+        "🇫🇷 French Ligue 1": "fra.1",
+        "🌍 UEFA Europa League": "uefa.europa",
+        "🇸🇦 Saudi Pro League": "ksa.1",
+        "🌍 CAF Champions League": "caf.champions"
     }
-    selected_league = st.selectbox("اختر البطولة:", list(leagues.keys()))
-    events_data = fetch_json(f"https://thesportsdb.com{leagues[selected_league]}")
-    events = events_data.get("events") if events_data else None
-
-    if events:
-        match_options = {f"{e['strHomeTeam']} 🆚 {e['strAwayTeam']} ({e['dateEvent']})": e for e in events[:15]}
