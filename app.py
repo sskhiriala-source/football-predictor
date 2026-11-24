@@ -21,8 +21,8 @@ def card(t, v, pct, force=None):
 
 def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
     d = (hp - ap) / 100
-    hx = max(.25, (hs*.6+ac*.4)*(1-hf/220)*(1-acs/220)*1.15*max(.55,min(1.65,1+d*1.3))*(1.10 if adv else 1))
-    ax = max(.25, (as_*.6+hc*.4)*(1-af/220)*(1-hcs/220)*1.15*max(.55,min(1.65,1-d*1.3))*(.94 if adv else 1))
+    hx = max(.25, min(3.2, (hs*.55+ac*.45)*(1-hf/240)*(1-acs/240)*max(.6,min(1.5,1+d*1.1))*(1.08 if adv else 1)))
+    ax = max(.25, min(3.2, (as_*.55+hc*.45)*(1-af/240)*(1-hcs/240)*max(.6,min(1.5,1-d*1.1))*(.95 if adv else 1)))
     sc, tot, w1, dr, w2, o25, by = {}, 0, 0, 0, 0, 0, 0
     for i in range(11):
         for j in range(11):
@@ -52,26 +52,11 @@ def run(hn, an, hs, hc, hcs, hf, hp, as_, ac, acs, af, ap, adv):
     with b1: card("BTTS: Yes", f"{by/tot*100:.1f}%", by/tot*100)
     with b2: card("BTTS: No", f"{100-by/tot*100:.1f}%", 100-by/tot*100)
 
-DEFAULT_DB = {
-    "🏆 UCL 2026/2027 (36 Teams)": {
-        "PSG":[3.5,1.25,40,5,96],"Real Madrid":[3.25,1.75,30,5,95],"Aston Villa":[2.4,1.2,40,20,90],"Arsenal":[2.0,.75,55,10,93],
-        "Como":[3.4,1.5,30,10,88],"Barcelona":[3.5,1.5,30,5,94],"Manchester City":[3.0,1.75,30,8,94],"Liverpool":[3.5,2.5,20,8,92],
-        "Club Brugge KV":[2.75,1.75,28,12,86],"Sporting CP":[2.0,1.0,45,12,88],"Betis":[2.0,1.5,32,15,86],"Dortmund":[1.75,1.25,38,15,87],
-        "Bayern Munich":[3.0,1.25,40,8,93],"Stuttgart":[1.75,1.0,45,15,85],"LASK":[2.0,1.8,35,20,81],"Galatasaray":[1.6,1.8,35,20,82],
-        "Inter":[2.0,1.5,35,12,89],"Manchester Utd":[2.0,2.0,25,12,85],"Fenerbahce":[1.5,2.75,18,20,79],"Bodo/Glimt":[0.8,1.8,35,30,78],
-        "AS Roma":[2.5,2.0,22,12,82],"Shakhtar Donetsk":[1.0,1.0,45,25,80],"Viking":[2.25,2.5,18,15,77],"Atl. Madrid":[1.0,1.25,42,25,84],
-        "PSV":[0.75,1.0,45,30,81],"FC Porto":[1.5,1.75,28,20,80],"Napoli":[1.5,2.75,18,22,80],"Villarreal":[2.0,3.5,12,15,79],
-        "AEK Athens":[1.25,2.75,18,25,75],"RB Leipzig":[1.25,2.75,18,25,79],"Sabah FC":[1.0,2.5,20,30,72],"Feyenoord":[1.0,2.75,18,30,76],
-        "Lens":[1.0,4.0,10,32,74],"Slavia Prague":[1.25,2.25,22,25,73],"Lille":[1.0,2.5,20,30,74],"Slovan Bratislava":[0.25,4.25,8,75,65]
-    }
-}
-
-DB = json.load(open("leagues.json", encoding="utf-8")) if os.path.exists("leagues.json") else DEFAULT_DB
-
+DB = json.load(open("leagues.json", encoding="utf-8")) if os.path.exists("leagues.json") else {"🏆 UCL 2026/2027": {"Real Madrid":[3.25,1.75,30,5,95],"PSG":[3.5,1.25,40,5,96]}}
 st.title("🎯 Match Predictor PRO")
 lg = st.selectbox("Competition:", list(DB.keys()))
 t = sorted(DB[lg].keys())
 hn = st.selectbox("Home Team:", t, 0)
-an = st.selectbox("Away Team:", t, 1)
+an = st.selectbox("Away Team:", t, 1 if len(t)>1 else 0)
 adv = st.checkbox("Home Advantage", True)
 if hn != an: run(hn, an, *DB[lg][hn], *DB[lg][an], adv)
