@@ -4,7 +4,6 @@ import math
 
 st.set_page_config(page_title="Match Predictor PRO", page_icon="🎯", layout="centered")
 
-# Disable mobile keyboard on selectbox dropdowns (Touch-only selection)
 components.html("""
 <script>
 const doc = window.parent.document;
@@ -91,7 +90,7 @@ def analyze_match(h_name, a_name, h_sc, h_con, h_cs, h_fts, h_pwr, a_sc, a_con, 
     p_by = (btts_yes / total) * 100.0
     p_bn = 100.0 - p_by
 
-    top3 = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:3]
+    top3 = sorted(scores.items(), key=lambda kv: kv, reverse=True)[:3]
 
     st.divider()
     st.subheader(f"🎯 Top 3 Correct Scores (xG: {h_xg:.2f} - {a_xg:.2f})")
@@ -172,5 +171,5 @@ selected_lg = st.selectbox("1️⃣ Select Competition:", list(CLUBS_DB.keys()))
 teams_dict = CLUBS_DB[selected_lg]
 team_names = sorted(list(teams_dict.keys()))
 
-col_sel1, col_sel2 = st.columns(2)
-with col_sel1:
+hn = st.selectbox("2️⃣ Home Team:", team_names, index=0)
+an = st.selectbox("3️⃣ Away Team:", team_names, index=1 if len(team_names) > 1 else 0)
