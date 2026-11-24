@@ -1,5 +1,5 @@
 import streamlit as st
-import math, json, urllib.request
+import math
 
 st.set_page_config(page_title="Correct Score PRO", page_icon="🎯", layout="centered")
 
@@ -48,10 +48,9 @@ def calculate_correct_scores(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_f
             scores[f"{i} - {j}"] = p
             total += p
 
-    # Fixed exact probability sorting
-    top5 = sorted(scores.items(), key=lambda x: x, reverse=True)[:5]
-    cov = sum(x for x in top5) / total * 100.0
-    s1, p1 = top5
+    top5 = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:5]
+    cov = sum(x[1] for x in top5) / total * 100.0
+    s1, p1 = top5[0]
     pct1 = (p1 / total) * 100.0
 
     st.divider()
@@ -73,51 +72,7 @@ def calculate_correct_scores(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_f
         with (c1 if idx % 2 == 1 else c2):
             st.markdown(f'<div class="cs-card {cls}"><div style="font-size:12px;color:#cbd5e1;">{labels[idx-1]}</div><div class="cs-sc">{sc}</div><div style="color:#93c5fd;">{(pr/total)*100:.1f}%</div></div>', unsafe_allow_html=True)
 
-# Pre-loaded verified club statistics (GF, GA, Clean Sheet %, Failed to Score %)
 CLUBS_DB = {
-    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 English Premier League": {
-        "Arsenal": (2.1, 0.7, 50, 10), "Manchester City": (2.3, 0.9, 40, 8),
-        "Liverpool": (2.2, 0.8, 45, 10), "Chelsea": (1.8, 1.1, 30, 15),
-        "Aston Villa": (1.7, 1.2, 28, 15), "Newcastle United": (1.7, 1.1, 32, 16),
-        "Tottenham Hotspur": (1.9, 1.4, 22, 12), "Manchester United": (1.4, 1.2, 30, 22),
-        "Brighton": (1.6, 1.3, 25, 18), "West Ham": (1.3, 1.5, 20, 25),
-        "Fulham": (1.4, 1.3, 25, 22), "Bournemouth": (1.5, 1.4, 22, 20),
-        "Brentford": (1.6, 1.5, 20, 18), "Crystal Palace": (1.2, 1.3, 28, 28),
-        "Nottingham Forest": (1.3, 1.1, 35, 24), "Everton": (1.1, 1.3, 30, 32),
-        "Wolves": (1.2, 1.7, 15, 26), "Leicester City": (1.2, 1.8, 15, 28),
-        "Ipswich Town": (1.0, 1.8, 14, 34), "Southampton": (0.9, 2.0, 12, 38)
-    },
-    "🇪🇸 Spanish La Liga": {
-        "Real Madrid": (2.2, 0.8, 46, 10), "FC Barcelona": (2.5, 1.0, 38, 8),
-        "Atletico Madrid": (1.7, 0.7, 52, 15), "Athletic Bilbao": (1.6, 0.9, 42, 18),
-        "Villarreal": (1.8, 1.4, 24, 14), "Real Sociedad": (1.2, 0.9, 44, 28),
-        "Real Betis": (1.3, 1.1, 34, 24), "Girona": (1.5, 1.3, 28, 20),
-        "Osasuna": (1.3, 1.3, 28, 25), "Celta Vigo": (1.5, 1.5, 20, 20),
-        "Mallorca": (1.0, 1.0, 38, 34), "Sevilla": (1.2, 1.3, 26, 28),
-        "Rayo Vallecano": (1.1, 1.2, 30, 30), "Getafe": (0.9, 1.0, 36, 38),
-        "Espanyol": (1.0, 1.6, 18, 35), "Valencia": (1.0, 1.5, 22, 35)
-    },
-    "🇮🇹 Italian Serie A": {
-        "Inter Milan": (2.2, 0.8, 48, 8), "Atalanta": (2.3, 1.1, 35, 10),
-        "Napoli": (1.7, 0.7, 54, 15), "Juventus": (1.5, 0.6, 56, 20),
-        "AC Milan": (1.7, 1.1, 34, 16), "Lazio": (1.8, 1.2, 30, 15),
-        "Fiorentina": (1.8, 0.9, 42, 15), "Bologna": (1.4, 1.1, 34, 22),
-        "AS Roma": (1.3, 1.3, 28, 25), "Torino": (1.1, 1.2, 32, 30),
-        "Udinese": (1.2, 1.4, 24, 28), "Genoa": (1.0, 1.4, 24, 34)
-    },
-    "🇩🇪 German Bundesliga": {
-        "Bayern Munich": (2.7, 0.8, 48, 6), "Bayer Leverkusen": (2.2, 1.2, 32, 8),
-        "Eintracht Frankfurt": (2.1, 1.3, 28, 10), "RB Leipzig": (1.6, 0.9, 46, 18),
-        "Borussia Dortmund": (1.9, 1.4, 26, 14), "VfB Stuttgart": (1.9, 1.4, 24, 14),
-        "SC Freiburg": (1.4, 1.3, 30, 22), "Wolfsburg": (1.6, 1.5, 22, 18),
-        "Werder Bremen": (1.5, 1.6, 20, 20), "Mainz 05": (1.4, 1.3, 28, 22)
-    },
-    "🇫🇷 French Ligue 1": {
-        "Paris Saint-Germain": (2.5, 0.8, 46, 8), "AS Monaco": (1.8, 0.9, 42, 14),
-        "Olympique Marseille": (2.0, 1.2, 30, 12), "LOSC Lille": (1.6, 0.9, 44, 16),
-        "Olympique Lyon": (1.8, 1.3, 26, 15), "OGC Nice": (1.7, 1.1, 34, 18),
-        "RC Lens": (1.2, 0.9, 44, 26), "Stade Rennais": (1.3, 1.4, 25, 25)
-    },
     "🏆 UEFA Champions League (Top Clubs)": {
         "Real Madrid": (2.2, 0.8, 46, 10), "Manchester City": (2.3, 0.9, 40, 8),
         "Bayern Munich": (2.7, 0.8, 48, 6), "Liverpool": (2.2, 0.8, 45, 10),
@@ -126,8 +81,39 @@ CLUBS_DB = {
         "Bayer Leverkusen": (2.2, 1.2, 32, 8), "Atletico Madrid": (1.7, 0.7, 52, 15),
         "Borussia Dortmund": (1.9, 1.4, 26, 14), "Juventus": (1.5, 0.6, 56, 20),
         "AC Milan": (1.7, 1.1, 34, 16), "Atalanta": (2.3, 1.1, 35, 10),
-        "Aston Villa": (1.7, 1.2, 28, 15), "Sporting CP": (2.4, 0.9, 45, 8),
-        "Benfica": (2.1, 0.9, 44, 10), "PSV Eindhoven": (2.5, 1.0, 40, 8)
+        "Aston Villa": (1.7, 1.2, 28, 15), "Sporting CP": (2.4, 0.9, 45, 8)
+    },
+    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 English Premier League": {
+        "Arsenal": (2.1, 0.7, 50, 10), "Manchester City": (2.3, 0.9, 40, 8),
+        "Liverpool": (2.2, 0.8, 45, 10), "Chelsea": (1.8, 1.1, 30, 15),
+        "Aston Villa": (1.7, 1.2, 28, 15), "Newcastle United": (1.7, 1.1, 32, 16),
+        "Tottenham Hotspur": (1.9, 1.4, 22, 12), "Manchester United": (1.4, 1.2, 30, 22),
+        "Brighton": (1.6, 1.3, 25, 18), "West Ham": (1.3, 1.5, 20, 25),
+        "Fulham": (1.4, 1.3, 25, 22), "Bournemouth": (1.5, 1.4, 22, 20),
+        "Nottingham Forest": (1.3, 1.1, 35, 24), "Everton": (1.1, 1.3, 30, 32)
+    },
+    "🇪🇸 Spanish La Liga": {
+        "Real Madrid": (2.2, 0.8, 46, 10), "FC Barcelona": (2.5, 1.0, 38, 8),
+        "Atletico Madrid": (1.7, 0.7, 52, 15), "Athletic Bilbao": (1.6, 0.9, 42, 18),
+        "Villarreal": (1.8, 1.4, 24, 14), "Real Sociedad": (1.2, 0.9, 44, 28),
+        "Real Betis": (1.3, 1.1, 34, 24), "Girona": (1.5, 1.3, 28, 20),
+        "Sevilla": (1.2, 1.3, 26, 28), "Valencia": (1.0, 1.5, 22, 35)
+    },
+    "🇮🇹 Italian Serie A": {
+        "Inter Milan": (2.2, 0.8, 48, 8), "Atalanta": (2.3, 1.1, 35, 10),
+        "Napoli": (1.7, 0.7, 54, 15), "Juventus": (1.5, 0.6, 56, 20),
+        "AC Milan": (1.7, 1.1, 34, 16), "Lazio": (1.8, 1.2, 30, 15),
+        "Fiorentina": (1.8, 0.9, 42, 15), "AS Roma": (1.3, 1.3, 28, 25)
+    },
+    "🇩🇪 German Bundesliga": {
+        "Bayern Munich": (2.7, 0.8, 48, 6), "Bayer Leverkusen": (2.2, 1.2, 32, 8),
+        "Eintracht Frankfurt": (2.1, 1.3, 28, 10), "RB Leipzig": (1.6, 0.9, 46, 18),
+        "Borussia Dortmund": (1.9, 1.4, 26, 14), "VfB Stuttgart": (1.9, 1.4, 24, 14)
+    },
+    "🇫🇷 French Ligue 1": {
+        "Paris Saint-Germain": (2.5, 0.8, 46, 8), "AS Monaco": (1.8, 0.9, 42, 14),
+        "Olympique Marseille": (2.0, 1.2, 30, 12), "LOSC Lille": (1.6, 0.9, 44, 16),
+        "Olympique Lyon": (1.8, 1.3, 26, 15), "OGC Nice": (1.7, 1.1, 34, 18)
     },
     "🇹🇳 Tunisian Ligue 1 & CAF": {
         "Esperance Sportive de Tunis": (1.8, 0.6, 55, 12),
@@ -166,3 +152,5 @@ else:
         st.markdown(f'<div class="team-box"><b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
 
     adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
+    if st.button("🎯 Predict Correct Score", use_container_width=True):
+        calculate_correct_scores(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
