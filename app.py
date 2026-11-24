@@ -1,6 +1,5 @@
 import streamlit as st
 import math, json, urllib.request
-from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Correct Score PRO", page_icon="🎯", layout="centered")
 
@@ -73,95 +72,66 @@ def calculate_correct_scores(h_name, a_name, h_sc, h_con, a_sc, a_con, h_cs, h_f
         with (c1 if idx % 2 == 1 else c2):
             st.markdown(f'<div class="cs-card {cls}"><div style="font-size:12px;color:#cbd5e1;">{labels[idx-1]}</div><div class="cs-sc">{sc}</div><div style="color:#93c5fd;">{(pr/total)*100:.1f}%</div></div>', unsafe_allow_html=True)
 
-@st.cache_data(ttl=1800)
-def fetch_json(url):
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as r:
-            return json.loads(r.read().decode())
-    except Exception:
-        return None
+@st.cache_data(ttl=3600)
+def load_league_data(code):
+    for season in ["2026-27", "2025-26", "2024-25"]:
+        url = f"https://githubusercontent.com{season}/{code}.json"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=6) as r:
+                data = json.loads(r.read().decode())
+                if data and "matches" in data:
+                    return data["matches"]
+        except Exception:
+            continue
+    return []
 
-def parse_sc(val):
-    if isinstance(val, dict): return int(float(val.get("value", 0)))
-    try: return int(float(val))
-    except Exception: return 0
-
-@st.cache_data(ttl=1800)
-def get_stats(league, tid):
-    data = fetch_json(f"https://espn.com{league}/teams/{tid}/schedule")
-    if not data or not isinstance(data.get("events"), list): return 1.4, 1.2, 25, 25
-    done = []
-    for ev in data["events"]:
-        comps = ev.get("competitions")
-        if isinstance(comps, list) and len(comps) > 0:
-            if comps[0].get("status", {}).get("type", {}).get("completed"):
-                done.append(comps[0])
-    last5 = done[-5:]
-    if not last5: return 1.4, 1.2, 25, 25
-    sc, con, cs, fts, cnt = 0, 0, 0, 0, 0
-    for comp in last5:
-        ts, tc = 0, 0
-        for c in comp.get("competitors", []):
-            if str(c.get("id")) == str(tid) or str(c.get("team", {}).get("id")) == str(tid): ts = parse_sc(c.get("score"))
-            else: tc = parse_sc(c.get("score"))
-        sc += ts; con += tc; cnt += 1
+def compute_team_metrics(matches, team_name):
+    played = [m for m in matches if m.get("score") and m["score"].get("ft") and (m["team1"] == team_name or m["team2"] == team_name)]
+    last5 = played[-5:]
+    if not last5:
+        return 1.4, 1.2, 25, 25
+    sc, con, cs, fts = 0, 0, 0, 0
+    for m in last5:
+        g1, g2 = m["score"]["ft"][0], m["score"]["ft"][1]
+        ts, tc = (g1, g2) if m["team1"] == team_name else (g2, g1)
+        sc += ts; con += tc
         if tc == 0: cs += 1
         if ts == 0: fts += 1
-    return (round(sc/cnt, 2), round(con/cnt, 2), int(cs/cnt*100), int(fts/cnt*100)) if cnt else (1.4, 1.2, 25, 25)
+    cnt = len(last5)
+    return round(sc/cnt, 2), round(con/cnt, 2), int(cs/cnt*100), int(fts/cnt*100)
 
 leagues = {
-    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League": "eng.1",
-    "🏆 UEFA Champions League": "uefa.champions",
-    "🇪🇸 Spanish La Liga": "esp.1",
-    "🇮🇹 Italian Serie A": "ita.1",
-    "🇩🇪 German Bundesliga": "ger.1",
-    "🇫🇷 French Ligue 1": "fra.1",
-    "🌍 UEFA Europa League": "uefa.europa",
-    "🇸🇦 Saudi Pro League": "ksa.1",
-    "🌍 CAF Champions League": "caf.champions"
+    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 English Premier League": "en.1",
+    "🇪🇸 Spanish La Liga": "es.1",
+    "🇮🇹 Italian Serie A": "it.1",
+    "🇩🇪 German Bundesliga": "de.1",
+    "🇫🇷 French Ligue 1": "fr.1"
 }
 
-lg_slug = leagues[st.selectbox("Select Competition:", list(leagues.keys()))]
+selected_lg = st.selectbox("Select Competition:", list(leagues.keys()))
+matches = load_league_data(leagues[selected_lg])
 
-# Fetch default current/next round first; fallback to 25-day window
-ev_data = fetch_json(f"https://espn.com{lg_slug}/scoreboard")
-events = ev_data.get("events") if isinstance(ev_data, dict) else []
+if matches:
+    upcoming = [m for m in matches if not m.get("score") or not m["score"].get("ft")]
+    target_list = upcoming[:20] if upcoming else matches[-15:]
+    match_map = {f"{m['team1']} vs {m['team2']} ({m.get('date', '')})": m for m in target_list}
 
-if not events:
-    d1, d2 = datetime.utcnow().strftime("%Y%m%d"), (datetime.utcnow() + timedelta(days=25)).strftime("%Y%m%d")
-    ev_data = fetch_json(f"https://espn.com{lg_slug}/scoreboard?dates={d1}-{d2}")
-    events = ev_data.get("events") if isinstance(ev_data, dict) else []
+    selected_match = st.selectbox("Select Match:", list(match_map.keys()))
+    m = match_map[selected_match]
+    hn, an = m["team1"], m["team2"]
 
-if events:
-    matches = {}
-    for ev in events:
-        comps = ev.get("competitions", [])
-        if isinstance(comps, list) and len(comps) > 0:
-            cs_list = comps[0].get("competitors", [])
-            hc = next((c for c in cs_list if c.get("homeAway") == "home"), None)
-            ac = next((c for c in cs_list if c.get("homeAway") == "away"), None)
-            if hc and ac:
-                matches[f"{hc['team']['displayName']} vs {ac['team']['displayName']} ({ev.get('date','')[:10]})"] = (hc, ac)
-    if matches:
-        hc, ac = matches[st.selectbox("Select Match:", list(matches.keys()))]
-        hn, an = hc["team"]["displayName"], ac["team"]["displayName"]
-        h_logo, a_logo = hc["team"].get("logo", ""), ac["team"].get("logo", "")
-        hsc, hcon, hcs, hfts = get_stats(lg_slug, hc["team"]["id"])
-        asc, acon, acs, afts = get_stats(lg_slug, ac["team"]["id"])
+    hsc, hcon, hcs, hfts = compute_team_metrics(matches, hn)
+    asc, acon, acs, afts = compute_team_metrics(matches, an)
 
-        ch, ca = st.columns(2)
-        with ch:
-            img_h = f'<img src="{h_logo}" width="42"><br>' if h_logo else ""
-            st.markdown(f'<div class="team-box">{img_h}<b>🏠 {hn}</b><br><span style="color:#34d399;font-size:12px;">GF: {hsc} | GA: {hcon}<br>CS: {hcs}% | FTS: {hfts}%</span></div>', unsafe_allow_html=True)
-        with ca:
-            img_a = f'<img src="{a_logo}" width="42"><br>' if a_logo else ""
-            st.markdown(f'<div class="team-box">{img_a}<b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
+    ch, ca = st.columns(2)
+    with ch:
+        st.markdown(f'<div class="team-box"><b>🏠 {hn}</b><br><span style="color:#34d399;font-size:12px;">GF: {hsc} | GA: {hcon}<br>CS: {hcs}% | FTS: {hfts}%</span></div>', unsafe_allow_html=True)
+    with ca:
+        st.markdown(f'<div class="team-box"><b>✈️ {an}</b><br><span style="color:#60a5fa;font-size:12px;">GF: {asc} | GA: {acon}<br>CS: {acs}% | FTS: {afts}%</span></div>', unsafe_allow_html=True)
 
-        adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
-        if st.button("🎯 Predict Correct Score", use_container_width=True):
-            calculate_correct_scores(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
-    else:
-        st.info("No fixtures listed right now for this tournament. Please select another league.")
+    adv = st.checkbox("Apply Home Advantage (+8%)", value=True)
+    if st.button("🎯 Predict Correct Score", use_container_width=True):
+        calculate_correct_scores(hn, an, hsc, hcon, asc, acon, hcs, hfts, acs, afts, adv)
 else:
-    st.info("No fixtures scheduled currently for this competition. Please select another league from the list above.")
+    st.error("Unable to load league schedule right now. Please refresh the page.")
